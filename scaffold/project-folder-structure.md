@@ -2,176 +2,151 @@
 name: project-folder-structure
 category: scaffold
 stack: [react-native, typescript, expo]
-keywords: [folder-structure, architecture, organization, modules, libs]
+keywords: [folder-structure, architecture, organization, modules, libs, components, icons]
 source-files: [folder tree structure]
 ---
 
 # Project Folder Structure
 
 ## Problem
-You need a scalable folder structure that separates infrastructure (libs), features (modules), and shared UI (components) to maintain clarity as the codebase grows.
+You need a scalable folder structure that separates infrastructure (`libs`), features (`modules`), shared UI (`components`), and screens (`app`) to maintain clarity as the codebase grows.
 
 ## When to Use
 - Starting a new Expo project
-- Organizing existing code for clarity and maintainability
-- Understanding where to place new features, utilities, or components
-- Onboarding new developers to the project
+- Understanding where to place new files, features, or utilities
+- Onboarding new developers
 
 ## Implementation
 
-### Code
-
-Recommended directory structure:
+### Directory Structure
 
 ```
 my-expo-app/
-├── app/                          # Expo Router pages (file-based routes)
-│   ├── _layout.tsx              # Root layout + providers
-│   ├── (auth)/                  # Route group: unauthenticated screens
+├── app/                              # Expo Router screens (file-based routes)
+│   ├── _layout.tsx                  # Root layout — providers only, no routing logic
+│   ├── (onboarding)/                # Route group: onboarding flow
+│   │   ├── _layout.tsx
+│   │   ├── index.tsx                # Startup routing gate
+│   │   ├── intro.tsx
+│   │   ├── setup-day-end.tsx
+│   │   ├── setup-reminder.tsx
+│   │   └── setup-notifications.tsx
+│   ├── (auth)/                      # Route group: unauthenticated screens
 │   │   ├── _layout.tsx
 │   │   ├── login.tsx
-│   │   ├── signup.tsx
-│   │   └── otp.tsx
-│   └── (tabs)/                  # Route group: tab navigator
+│   │   └── signup.tsx
+│   └── (tabs)/                      # Route group: tab navigator
 │       ├── _layout.tsx
-│       ├── index.tsx            # Home tab
-│       ├── reports.tsx
-│       ├── chats/
-│       │   └── [chatId].tsx     # Dynamic segment
+│       ├── index.tsx
 │       └── settings.tsx
 │
-├── components/                   # Shared, domain-agnostic UI
-│   ├── icons/                   # SVG icon components (PascalCase)
-│   │   ├── HomeIcon.tsx
-│   │   ├── ChatsIcon.tsx
-│   │   └── types.ts
-│   ├── layouts/                 # Layout wrappers
-│   │   ├── ScreenLayout.tsx
-│   │   └── ParallaxScrollView.tsx
-│   ├── ui/                      # Design system primitives
-│   │   ├── button/
-│   │   │   ├── Button.tsx
-│   │   │   └── types.ts
-│   │   ├── form-group/
-│   │   ├── heading/
-│   │   ├── paragraph/
-│   │   ├── modal/
-│   │   └── index.ts             # Barrel export
-│   ├── sheets/                  # Bottom sheets
-│   │   └── ActionSheetModal.tsx
-│   └── utils/                   # Image/file helpers (not logic utils)
-│       ├── ImageForm.tsx
-│       └── UploadedImageCard.tsx
+├── components/                       # Shared, domain-agnostic UI
+│   ├── icons/                       # All icons live here — never import from libraries directly
+│   │   ├── Icon.tsx                 # Unified icon component wrapping Ionicons
+│   │   ├── types.ts                 # IconProps extends SvgProps + typed name
+│   │   └── index.ts
+│   ├── layouts/                     # Screen layout wrappers
+│   │   └── ScreenLayout.tsx
+│   └── ui/                          # Design system primitives
+│       ├── heading/
+│       │   ├── Heading.tsx
+│       │   └── types.ts
+│       ├── paragraph/
+│       │   ├── Paragraph.tsx
+│       │   └── types.ts
+│       ├── button/
+│       │   ├── Button.tsx
+│       │   └── types.ts
+│       └── index.ts
 │
-├── libs/                        # Infrastructure (no business logic)
-│   ├── config/                  # Configuration
-│   │   ├── ConfigKeys.ts        # API URLs, env flags
+├── libs/                            # Infrastructure (no business logic)
+│   ├── config/
 │   │   └── index.ts
-│   ├── constants/               # Global constants
-│   │   ├── theme.ts            # Theme object
-│   │   ├── fonts.ts
-│   │   ├── url.ts
+│   ├── constants/
+│   │   ├── theme.ts                 # SINGLE SOURCE OF TRUTH for colors, spacing, typography
 │   │   └── index.ts
-│   ├── context/                 # React Contexts
-│   │   ├── AuthContext.tsx
+│   ├── context/
 │   │   ├── ThemeContext.tsx
+│   │   ├── AuthContext.tsx
 │   │   ├── AppContext.tsx
 │   │   └── index.ts
-│   ├── hooks/                   # Global reusable hooks
+│   ├── hooks/
 │   │   ├── useTheme.ts
-│   │   ├── useThemedStyles.ts
+│   │   ├── useThemedStyles.ts       # Returns { theme: Theme, isDark }
+│   │   ├── useNotifications.ts
 │   │   ├── usePagination.ts
 │   │   ├── useTimer.ts
-│   │   ├── useNotifications.ts
 │   │   └── index.ts
-│   ├── services/                # API & session management
-│   │   ├── index.ts            # Axios singleton
-│   │   ├── type.ts             # API response types
-│   │   ├── sessionManager.ts   # Auth callbacks
-│   │   └── queryClient.ts      # React Query config
-│   └── utils/                   # Pure utility functions
-│       ├── keyStorage.ts       # SecureStore + MMKV
+│   ├── services/
+│   │   ├── index.ts                 # Axios singleton
+│   │   ├── type.ts
+│   │   ├── sessionManager.ts
+│   │   └── queryClient.ts
+│   └── utils/
+│       ├── keyStorage.ts            # MMKV (fastStorage) + SecureStore
 │       ├── imageHandlers.ts
 │       ├── fileDownloader.ts
 │       ├── shareReceipt.ts
 │       ├── ToastConfig.tsx
-│       ├── sizing.ts           # Responsive scaling
-│       ├── formatters.ts
-│       ├── permissions.ts
 │       └── index.ts
 │
-├── modules/                     # Feature modules (domain-driven)
-│   ├── auth/                   # Auth feature
-│   │   ├── hooks/              # Feature-specific hooks
-│   │   │   └── useAuth.ts
-│   │   ├── login/              # Sub-features
-│   │   │   ├── LoginForm.tsx
-│   │   │   └── index.ts
-│   │   ├── signup/
-│   │   ├── schema/             # Yup/Zod validation
-│   │   │   └── authSchema.ts
+├── modules/                         # Feature modules (domain-driven)
+│   ├── onboarding/                  # Example feature
+│   │   ├── components/              # Reusable UI for this feature
+│   │   ├── store/                   # MMKV-backed state
 │   │   ├── types/
-│   │   │   └── index.ts
-│   │   ├── utils/              # Feature-specific utils
-│   │   │   └── authHelpers.ts
-│   │   ├── components/         # Feature-specific components
-│   │   ├── services/           # Feature-specific services
-│   │   ├── constants.ts        # Query keys, constants
 │   │   └── index.ts
-│   ├── chats/
-│   │   ├── hooks/
-│   │   │   ├── useChat.ts
-│   │   │   └── useChatList.ts
+│   ├── auth/
 │   │   ├── components/
+│   │   ├── hooks/
+│   │   ├── schema/
 │   │   ├── services/
-│   │   │   └── chat.service.ts
 │   │   ├── types/
-│   │   ├── constants.ts
 │   │   └── index.ts
-│   ├── profile/
-│   ├── reports/
-│   ├── dashboard/
-│   └── ... (other features)
+│   └── index.ts                     # Re-exports all modules
 │
-├── assets/                      # Static assets
-│   ├── icon.png
-│   ├── splash.png
+├── assets/
+│   ├── fonts/                       # TTF files organized by family
+│   │   ├── Inter/static/
+│   │   ├── Playfair_Display/static/
+│   │   └── Roboto_Mono/static/
 │   └── images/
 │
-├── app.config.ts               # Expo config
-├── tailwind.config.js          # NativeWind/Tailwind config
-├── tsconfig.json               # TypeScript config
+├── app.config.ts                    # Expo config + expo-font plugin
+├── tailwind.config.js               # NativeWind tokens (must mirror theme.ts)
+├── global.css                       # NativeWind base import
+├── tsconfig.json
 ├── package.json
-├── .env.example                # Environment variables template
-└── README.md
+└── .env.example
 ```
 
-## Usage Example
-
-**Importing from each layer:**
+## Import Examples
 
 ```typescript
-// From components (UI primitives)
-import { Button, Heading, FormGroup } from 'components/ui';
-import { HomeIcon } from 'components/icons';
+// UI primitives
+import { Heading, Paragraph, Button } from '@/components/ui';
 
-// From libs (infrastructure)
-import { useTheme } from 'libs/hooks';
-import { serverApi } from 'libs/services';
-import { AUTH_TOKEN } from 'libs/utils/keyStorage';
+// Icons — always from here, never from @expo/vector-icons directly
+import { Icon } from '@/components/icons';
 
-// From modules (features)
-import { useAuth } from 'modules/auth/hooks';
-import { LoginForm } from 'modules/auth/login';
-import { chatQueryKeys } from 'modules/chats/constants';
+// Layout
+import { ScreenLayout } from '@/components/layouts/ScreenLayout';
 
-// Cross-module imports are rare; use libs if you need shared data
+// Theme
+import { useThemedStyles } from '@/libs/hooks/useThemedStyles';
+import { Theme } from '@/libs/constants/theme';
+
+// Storage
+import { fastStorage, FAST_KEYS, devClearAllStorage } from '@/libs/utils/keyStorage';
+
+// Feature module
+import { SetupMasthead, completeOnboarding } from '@/modules/onboarding';
 ```
 
 ## Gotchas
 
-- **No cross-module imports**: Modules should not import from each other. Use libs for shared data.
-- **Barrel exports (index.ts)**: Every folder exports its public API via index.ts. This enables clean imports.
-- **components/utils vs libs/utils**: components/utils = UI helper components (ImageForm, UploadedImageCard). libs/utils = pure functions (formatters, keyStorage, imageHandlers).
-- **Module-level services**: Some modules (chats) have a service.ts layer. This is inconsistent; prefer calling serverApi directly in hooks.
-- **Features in app/ vs modules/**: Screens live in app/ (routes); logic lives in modules/ (hooks, components, services).
+- **`app/` = screens only**: No logic, hooks, or components defined here — just Expo Router screen files that import from `modules/` and `components/`.
+- **`modules/` = no `screens/` subfolder**: Module files that render a full screen belong in `app/(route-group)/`. If it's in a module, it's a reusable component or logic unit.
+- **`components/icons/` = the only icon source**: Never import `Ionicons` or any icon library directly in a screen or feature component. All icons go through `Icon` from `@/components/icons`.
+- **`libs/constants/theme.ts` = single source of truth**: Never define hex values, spacing numbers, or font family strings anywhere else. `tailwind.config.js` must mirror it.
+- **`_layout.tsx` = providers only**: Root and route-group layouts never contain `router.replace` or any routing logic.

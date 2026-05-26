@@ -2,108 +2,100 @@
 name: theming-hooks
 category: styling
 stack: [react, react-native, context, memoization]
-keywords: [useTheme, useThemedStyles, memoization, dynamic-styles]
+keywords: [useTheme, useThemedStyles, Theme, createStyles, memoization, dark-mode]
 source-files: [libs/hooks/useTheme.ts, libs/hooks/useThemedStyles.ts]
 ---
 
 # Theming Hooks
 
 ## Problem
-You need efficient hooks to access theme and create theme-dependent styles without re-rendering on every theme change.
+You need a consistent pattern to access the theme and produce `StyleSheet`-based styles that automatically update when the user switches color scheme.
 
 ## When to Use
-- Accessing color tokens in components
-- Creating dynamic styles based on theme
-- Memoizing styles to prevent unnecessary recalculations
-- Implementing dark mode support
+- Creating theme-aware `StyleSheet.create` styles in any component
+- Accessing `theme.colors.*`, `theme.spacing.*`, or `theme.typography.*` inside a component
+- Avoiding hardcoded colors, spacing, or font strings in `StyleSheet` calls
 
 ## Implementation
 
 ### Code
 
-**useTheme hook:**
+`libs/hooks/useTheme.ts` — reads color scheme from context:
 
 ```typescript
 import { useContext } from 'react';
-import { ThemeContext } from 'libs/context';
+import { ThemeContext } from '../context/ThemeContext';
 
-const useTheme = () => {
-  return useContext(ThemeContext);
-};
-
-export default useTheme;
+export function useTheme() {
+  const context = useContext(ThemeContext);
+  if (!context) {
+    throw new Error('useTheme must be used within ThemeContextProvider');
+  }
+  return context;
+}
 ```
 
-**useThemedStyles hook:**
+`libs/hooks/useThemedStyles.ts` — resolves the `Theme` object:
 
 ```typescript
 import { useMemo } from 'react';
-import useTheme from './useTheme';
-import { Theme } from 'libs/constants/theme';
+import { darkTheme, lightTheme, Theme } from '../constants/theme';
+import { useTheme } from './useTheme';
 
-type Styles<T extends Record<string, unknown>> = (theme: Theme) => T;
+export function useThemedStyles() {
+  const { colorScheme } = useTheme();
 
-const useThemedStyles = <T extends Record<string, unknown>>(
-  styles: Styles<T>
-) => {
-  const { theme } = useTheme();
-  return useMemo(() => styles(theme), [styles, theme]);
-};
-
-export default useThemedStyles;
+  return useMemo(() => {
+    const theme: Theme = colorScheme === 'dark' ? darkTheme : lightTheme;
+    return { theme, isDark: colorScheme === 'dark' };
+  }, [colorScheme]);
+}
 ```
 
-## Usage Example
-
-**With useTheme:**
+## Usage Pattern (mandatory in every component that uses StyleSheet)
 
 ```typescript
-import { useTheme } from 'libs/hooks';
-import { View, Text } from 'react-native';
+import { Theme } from '@/libs/constants/theme';
+import { useThemedStyles } from '@/libs/hooks/useThemedStyles';
+import { useMemo } from 'react';
+import { StyleSheet, View } from 'react-native';
+import { Paragraph } from '@/components/ui';
 
-export default function MyComponent() {
-  const { theme, mode, toggleColorScheme } = useTheme();
+export function NotificationRow({ title, description }: { title: string; description: string }) {
+  const { theme } = useThemedStyles();
+  const styles = useMemo(() => createStyles(theme), [theme]);
 
   return (
-    <View style={{ backgroundColor: theme.colors.background }}>
-      <Text style={{ color: theme.colors.text.primary }}>
-        Current mode: {mode}
-      </Text>
-      <Button onPress={toggleColorScheme}>
-        Toggle {mode === 'light' ? '🌙' : '☀️'}
-      </Button>
+    <View style={styles.row}>
+      <Paragraph size="sm" font="inter-semibold">{title}</Paragraph>
+      <Paragraph size="xs" className="text-secondary">{description}</Paragraph>
     </View>
   );
 }
-```
 
-**With useThemedStyles (memoized):**
-
-```typescript
-import useThemedStyles from 'libs/hooks/useThemedStyles';
-import { StyleSheet } from 'react-native';
-
-const createStyles = (theme) =>
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: theme.colors.background,
-      padding: theme.spacing.md,
-    },
-    text: {
-      color: theme.colors.text.primary,
-      fontSize: 16,
+function createStyles(theme: Theme) {
+  return StyleSheet.create({
+    row: {
+      paddingVertical: theme.spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.outline_variant,
+      backgroundColor: theme.colors.surface_container,
     },
   });
-
-export default function MyComponent() {
-  const styles = useThemedStyles(createStyles);
-  return <View style={styles.container} />;
 }
 ```
 
+## Rules
+
+- `createStyles` is always a hoisted `function` declaration placed **after** the component. Never a `const` at module level or before the component.
+- Call `useThemedStyles()` once per component: `const { theme } = useThemedStyles()`.
+- Wrap the call to `createStyles` in `useMemo`: `const styles = useMemo(() => createStyles(theme), [theme])`.
+- Access `theme.colors.*` for color tokens, `theme.spacing.*` for spacing, `theme.typography.*` for font properties.
+- Never pass raw colors, spacing integers, or font strings directly into `StyleSheet.create`. Everything comes from `theme`.
+
 ## Gotchas
 
-- **useMemo dependency**: Ensure `styles` function is memoized (defined outside component) or useCallback wrapped.
-- **Context provider**: ThemeContext must wrap all components using these hooks.
-- **Re-renders**: Changing theme triggers re-renders of all components using useTheme. Optimize with useMemo.
+- `lightTheme`/`darkTheme` are module-level constants — same object reference when scheme doesn't change, keeping `useMemo` stable.
+- `useThemedStyles` depends on `ThemeContextProvider` being an ancestor. It will throw if used outside the provider.
+- Dynamic Animated values (e.g. `interpolate` outputRange) should use `theme.colors.*` directly in the component body — they are recalculated on each render intentionally.
+- Do NOT call `useThemedStyles` inside `createStyles`. It's a hook — it only works in the component body.

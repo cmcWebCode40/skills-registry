@@ -2,102 +2,92 @@
 name: feature-driven-folder-structure
 category: architecture
 stack: [react-native, typescript]
-keywords: [module, feature, folder-structure, domain-driven, organization]
+keywords: [module, feature, folder-structure, domain-driven, organization, barrel-export]
 source-files: [modules/ folder structure]
 ---
 
 # Feature-Driven Folder Structure
 
 ## Problem
-You need to organize code by feature (auth, chats, profile) rather than type (components, hooks, utils) to improve maintainability and modularity.
+You need to organize code by feature (auth, onboarding, chats) rather than by type (components, hooks, utils) to keep features cohesive and independently maintainable.
 
 ## When to Use
 - Organizing a new feature
 - Scaling a codebase beyond a few screens
-- Enabling different team members to own different features
-- Making features independently testable and deployable
+- Enabling team members to own separate features
+- Making features independently testable
+
+## Rules
+
+- **No `screens/` subfolder inside a module**. If it looks like a screen, it belongs in `app/(route-group)/`. Modules contain only reusable components, store logic, types, hooks, and utils.
+- **No cross-module imports**. Modules must not import from each other. Shared logic moves to `libs/`.
+- **Barrel exports** (`index.ts`): Every module exports its public API through a single `index.ts`. Keep it up to date when adding files.
 
 ## Implementation
 
-### Code
+### Module Structure
 
-Recommended module structure:
+```
+modules/onboarding/
+├── components/
+│   ├── SetupMasthead.tsx
+│   ├── ProgressBar.tsx
+│   ├── TimeDisplay.tsx
+│   ├── ToggleRow.tsx
+│   ├── NotificationRow.tsx
+│   ├── OnboardingSlide.tsx
+│   └── index.ts
+├── store/
+│   └── onboardingStore.ts
+├── types/
+│   └── index.ts
+└── index.ts
+```
 
 ```
 modules/auth/
-├── hooks/
-│   ├── useAuth.ts              # Main feature hook
-│   ├── useLogin.ts             # Specific operation hook
-│   └── index.ts                # Barrel export
 ├── components/
 │   ├── LoginForm.tsx
-│   ├── SignupForm.tsx
 │   └── index.ts
-├── login/                      # Feature sub-section
-│   ├── LoginForm.tsx
+├── hooks/
+│   ├── useAuth.ts
 │   └── index.ts
-├── signup/
-│   └── index.ts
-├── schema/                     # Validation
-│   ├── loginSchema.ts
-│   └── index.ts
+├── schema/
+│   └── authSchema.ts
 ├── types/
-│   ├── index.ts                # LoginPayload, AuthResponse, etc.
+│   └── index.ts
 ├── utils/
-│   ├── authHelpers.ts
-│   └── index.ts
-├── services/                   # Feature API (optional)
-│   ├── auth.service.ts
-│   └── index.ts
-├── constants.ts                # Query keys, constants
-├── index.ts                    # Barrel export (public API)
-```
-
-**Module barrel export** (`modules/auth/index.ts`):
-
-```typescript
-export { default as useAuth } from './hooks/useAuth';
-export { LoginForm } from './login';
-export * from './types';
-export { authQueryKeys } from './constants';
-```
-
-**Usage in screens:**
-
-```typescript
-// From another module
-import { useAuth, authQueryKeys } from 'modules/auth';
-
-// Imports are clean; implementation details hidden
-```
-
-## Usage Example
-
-**Organizing a chat feature:**
-
-```
-modules/chats/
-├── hooks/
-│   ├── useChat.ts              # Fetch messages
-│   ├── useChatList.ts          # Fetch conversations
-│   └── useSendMessage.ts       # Send message
-├── components/
-│   ├── ChatBubble.tsx
-│   ├── ChatInput.tsx
-│   └── ConversationCard.tsx
+│   └── authHelpers.ts
 ├── services/
-│   ├── chat.service.ts         # API calls
-│   ├── chat.socket.ts          # MQTT socket
-│   └── localMessageStore.ts    # Offline queue
-├── types/
-│   ├── index.ts
-├── constants.ts                # chatQueryKeys
+│   └── auth.service.ts
+├── constants.ts
 └── index.ts
+```
+
+### Barrel Export Example
+
+`modules/onboarding/index.ts`:
+
+```typescript
+export { SetupMasthead } from './components/SetupMasthead';
+export { ProgressBar } from './components/ProgressBar';
+export { TimeDisplay } from './components/TimeDisplay';
+export { ToggleRow } from './components/ToggleRow';
+export { NotificationRow } from './components/NotificationRow';
+export { OnboardingSlide } from './components/OnboardingSlide';
+export { saveOnboardingData, completeOnboarding, isOnboardingComplete } from './store/onboardingStore';
+export type { OnboardingState } from './types';
+```
+
+Usage in a screen:
+
+```typescript
+import { SetupMasthead, ProgressBar, completeOnboarding } from '@/modules/onboarding';
 ```
 
 ## Gotchas
 
-- **No cross-module imports**: Don't import from other modules directly. If you need shared logic, move it to libs/.
-- **Barrel exports**: Use index.ts to export only the public API. Hide implementation details.
-- **Circular dependencies**: Modules should not import each other. If they need shared data, use a shared context in libs/ or pass via props.
-- **Services per module**: Some modules (chats) have a service layer. This is optional; prefer calling serverApi directly in hooks.
+- **No `screens/` in modules**: A file that renders a full screen belongs in `app/(route-group)/`. A module component is something reused across multiple screens or composed into a screen — not the screen itself.
+- **Barrel exports stay current**: Every time you add a new component or util to a module, export it from `index.ts`. Stale barrels cause silent import failures.
+- **Circular dependencies**: Modules never import each other. If two modules need the same data, it belongs in `libs/context` or `libs/utils`.
+- **`store/` for feature state**: Module-level persistence lives in `modules/<feature>/store/`. Use `fastStorage` from `libs/utils/keyStorage` for MMKV access.

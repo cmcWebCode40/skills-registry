@@ -2,193 +2,134 @@
 name: ui-button-component
 category: scaffold
 stack: [react-native, nativewind, typescript]
-keywords: [button, component, variant, size, loading, icon]
+keywords: [button, Pressable, variant, loading, Broadsheet, full-width, 52px]
 source-files: [components/ui/button/Button.tsx]
 ---
 
 # Button Component
 
 ## Problem
-You need a reusable Button component with variants (contained, outlined, text), sizes, loading state, and icon support while maintaining design system consistency.
+You need a reusable button that enforces the Broadsheet Editorial design system: full-width, 52px height, 0px border radius, with primary and outlined variants.
 
 ## When to Use
-- Creating a standard button for your app's UI
-- Supporting multiple button styles without duplicating code
-- Adding loading, disabled, and icon support
-- Ensuring consistency with design tokens
+- Primary actions (full-width, solid fill)
+- Secondary/ghost actions (full-width, outlined)
+- Loading state during async operations
+
+## Design Rules
+
+- **Height**: 52px for primary, 44px for secondary/ghost
+- **Width**: Full-width (`w-full`)
+- **Border radius**: 0px — never use `rounded-*`
+- **Primary**: `bg-primary` background, `text-on_primary` label
+- **Outlined**: transparent background, `border border-outline_variant`, `text-secondary` label
+- **Label**: `Paragraph` component with `font="inter-semibold"`, `size="sm"`, `uppercase tracking-widest`
+- **No raw `Text`**: Button labels use `Paragraph` from `components/ui`, never the RN `Text` component
 
 ## Implementation
 
-### Dependencies
-```json
-{
-  "react-native": "^0.81.0",
-  "nativewind": "^4.0.0"
-}
-```
-
 ### Code
 
-Create `components/ui/button/types.ts`:
+`components/ui/button/types.ts`:
 
 ```typescript
 import { PressableProps } from 'react-native';
 
-export type ButtonVariant = 'contained' | 'outlined' | 'text' | 'ghost-primary' | 'outlined-danger';
-export type ButtonSize = 'xs' | 'sm' | 'md' | 'lg';
+export type ButtonVariant = 'primary' | 'outlined' | 'ghost';
 
 export interface ButtonProps extends PressableProps {
   variant?: ButtonVariant;
-  size?: ButtonSize;
   isLoading?: boolean;
-  startIcon?: React.ReactNode;
-  endIcon?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
 }
 ```
 
-Create `components/ui/button/Button.tsx`:
+`components/ui/button/Button.tsx`:
 
 ```typescript
-import React from 'react';
-import { Pressable, Text, View, ActivityIndicator } from 'react-native';
+import { Paragraph } from '@/components/ui/paragraph/Paragraph';
+import { Theme } from '@/libs/constants/theme';
+import { useThemedStyles } from '@/libs/hooks/useThemedStyles';
+import React, { useMemo } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet } from 'react-native';
 import { ButtonProps } from './types';
-import { useTheme } from 'libs/hooks';
 
-const Button = React.forwardComponent<View, ButtonProps>(
-  (
-    {
-      variant = 'contained',
-      size = 'md',
-      isLoading = false,
-      startIcon,
-      endIcon,
-      children,
-      disabled,
-      className,
-      ...rest
+export function Button({
+  variant = 'primary',
+  isLoading = false,
+  disabled,
+  children,
+  className = '',
+  ...rest
+}: ButtonProps) {
+  const { theme } = useThemedStyles();
+  const styles = useMemo(() => createStyles(theme), [theme]);
+
+  const containerClass = {
+    primary:  `h-[52px] w-full items-center justify-center bg-primary ${disabled ? 'opacity-50' : ''} ${className}`,
+    outlined: `h-[44px] w-full items-center justify-center border border-outline_variant ${disabled ? 'opacity-50' : ''} ${className}`,
+    ghost:    `h-[44px] w-full items-center justify-center ${disabled ? 'opacity-50' : ''} ${className}`,
+  }[variant];
+
+  const labelClass = {
+    primary:  'uppercase tracking-widest text-on_primary',
+    outlined: 'uppercase tracking-widest text-secondary',
+    ghost:    'uppercase tracking-widest text-on_surface_variant',
+  }[variant];
+
+  return (
+    <Pressable disabled={disabled || isLoading} className={containerClass} {...rest}>
+      {isLoading ? (
+        <ActivityIndicator color={variant === 'primary' ? theme.colors.on_primary : theme.colors.on_surface} />
+      ) : (
+        <Paragraph size="sm" font="inter-semibold" className={labelClass}>
+          {children}
+        </Paragraph>
+      )}
+    </Pressable>
+  );
+}
+
+function createStyles(theme: Theme) {
+  return StyleSheet.create({
+    pressedOverlay: {
+      opacity: 0.85,
     },
-    ref
-  ) => {
-    const { theme } = useTheme();
+  });
+}
+```
 
-    const baseStyles = 'flex-row items-center justify-center rounded';
+`components/ui/index.ts`:
 
-    const variantStyles = {
-      contained: `bg-primary-500 ${disabled ? 'opacity-50' : ''}`,
-      outlined: `border border-gray-300 ${disabled ? 'opacity-50' : ''}`,
-      text: `${disabled ? 'opacity-50' : ''}`,
-      'ghost-primary': `${disabled ? 'opacity-50' : ''}`,
-      'outlined-danger': `border border-error-500 ${disabled ? 'opacity-50' : ''}`,
-    };
-
-    const sizeStyles = {
-      xs: 'px-2 py-1',
-      sm: 'px-3 py-2',
-      md: 'px-4 py-3',
-      lg: 'px-6 py-4',
-    };
-
-    const textColorStyles = {
-      contained: 'text-white',
-      outlined: 'text-gray-900',
-      text: 'text-primary-500',
-      'ghost-primary': 'text-primary-500',
-      'outlined-danger': 'text-error-500',
-    };
-
-    const textSizeStyles = {
-      xs: 'text-xs',
-      sm: 'text-sm',
-      md: 'text-base',
-      lg: 'text-lg',
-    };
-
-    return (
-      <Pressable
-        ref={ref}
-        disabled={disabled || isLoading}
-        className={`
-          ${baseStyles}
-          ${variantStyles[variant]}
-          ${sizeStyles[size]}
-          ${className || ''}
-        `}
-        {...rest}
-      >
-        {isLoading ? (
-          <ActivityIndicator color={theme.colors.primary[500]} />
-        ) : (
-          <>
-            {startIcon && <View className="mr-2">{startIcon}</View>}
-            <Text
-              className={`
-                font-averta-semibold
-                ${textColorStyles[variant]}
-                ${textSizeStyles[size]}
-              `}
-            >
-              {children}
-            </Text>
-            {endIcon && <View className="ml-2">{endIcon}</View>}
-          </>
-        )}
-      </Pressable>
-    );
-  }
-);
-
-Button.displayName = 'Button';
-
-export default Button;
+```typescript
+export { Button } from './button/Button';
+export type { ButtonProps } from './button/types';
 ```
 
 ## Usage Example
 
 ```typescript
-import Button from 'components/ui/button';
-import { PlusIcon } from 'components/icons';
+import { Button } from '@/components/ui';
 
-export default function MyScreen() {
-  const [isLoading, setIsLoading] = React.useState(false);
-
-  const handlePress = async () => {
-    setIsLoading(true);
-    // Do something
-    setIsLoading(false);
-  };
-
+export function SetupFooter({ onNext, onSkip }: { onNext: () => void; onSkip: () => void }) {
   return (
-    <>
-      {/* Contained button */}
-      <Button variant="contained" size="md" onPress={handlePress}>
-        Save
+    <View className="px-md pb-lg pt-md">
+      <Button variant="primary" onPress={onNext}>
+        NEXT →
       </Button>
-
-      {/* Outlined button with icon */}
-      <Button variant="outlined" startIcon={<PlusIcon />}>
-        Add Item
+      <Button variant="outlined" onPress={onSkip} className="mt-sm">
+        SKIP FOR NOW
       </Button>
-
-      {/* Loading state */}
-      <Button isLoading={isLoading} onPress={handlePress}>
-        Uploading...
-      </Button>
-
-      {/* Danger variant */}
-      <Button variant="outlined-danger" onPress={() => handleDelete()}>
-        Delete
-      </Button>
-    </>
+    </View>
   );
 }
 ```
 
 ## Gotchas
 
-- **Disabled state**: Set both `disabled` prop and visual opacity. The prop prevents press events; opacity provides feedback.
-- **Loading state**: Automatically disables the button. Wrap isLoading check to prevent double-submissions.
-- **Icon spacing**: Use `mr-2`/`ml-2` for icon margins. Adjust based on your design system.
-- **Text weight**: Button text uses `font-averta-semibold` from your Tailwind config. Ensure the font is loaded.
-- **Accessible hit slop**: React Native buttons have a minimum 44x44 tap target. Adjust padding if needed for accessibility.
+- **No `rounded-*`**: The Broadsheet design system uses 0px border radius everywhere.
+- **No raw `Text` inside Button**: The label is a `Paragraph` with `font="inter-semibold"`. Never use `<Text>` directly.
+- **`disabled` vs `isLoading`**: Both disable the press event. `isLoading` also replaces the label with a spinner.
+- **Color via className**: Button variants do not accept a `color` prop. Colors come from NativeWind tokens (`bg-primary`, `text-on_primary`).
+- **`ActivityIndicator` color**: Must come from `theme.colors.*` via `useThemedStyles` — never hardcoded.

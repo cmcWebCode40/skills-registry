@@ -2,20 +2,20 @@
 name: expo-app-config
 category: scaffold
 stack: [expo, react-native, typescript, eas-build]
-keywords: [app.config.ts, EAS, environment, build, configuration]
+keywords: [app.config.ts, EAS, environment, build, expo-font, fonts, config-plugin]
 source-files: [app.config.ts, .env.example]
 ---
 
 # Expo App Config
 
 ## Problem
-You need to configure your Expo app with environment-specific settings, EAS Build profiles, and dynamic environment variables without hardcoding secrets.
+Configure your Expo app with environment-specific settings, EAS Build profiles, font bundling via config plugin, and dynamic environment variables — without hardcoding secrets or using `useFonts`.
 
 ## When to Use
 - Setting up a new Expo project
-- Adding environment-specific configurations (dev, staging, production)
-- Configuring EAS Build profiles for Android and iOS
-- Managing API URLs, app identifiers, and build settings
+- Adding fonts via the `expo-font` config plugin (recommended over `useFonts`)
+- Configuring environment-specific API URLs
+- Setting up EAS Build for iOS and Android
 
 ## Implementation
 
@@ -23,6 +23,8 @@ You need to configure your Expo app with environment-specific settings, EAS Buil
 ```json
 {
   "expo": "^54.0.0",
+  "expo-font": "^13.0.0",
+  "expo-build-properties": "^0.13.0",
   "expo-constants": "^16.0.0"
 }
 ```
@@ -53,27 +55,27 @@ export default {
     slug: 'your-app-slug',
     version: '1.0.0',
     orientation: 'portrait',
-    icon: './assets/icon.png',
+    icon: './assets/images/icon.png',
     userInterfaceStyle: 'automatic',
     splash: {
-      image: './assets/splash.png',
+      image: './assets/images/splash.png',
       resizeMode: 'contain',
-      backgroundColor: '#ffffff',
+      backgroundColor: '#F5F0E8',
     },
     ios: {
-      supportsTabletMode: true,
+      supportsTabletMode: false,
       bundleIdentifier: 'com.yourcompany.app',
-      buildNumber: '1.0.0',
+      buildNumber: '1',
       infoPlist: {
-        NSPhotoLibraryUsageDescription:
-          'This app needs access to your photo library.',
-        NSCameraUsageDescription: 'This app needs access to your camera.',
+        NSPhotoLibraryUsageDescription: 'App needs access to your photo library.',
+        NSCameraUsageDescription: 'App needs access to your camera.',
+        UIStatusBarStyle: 'dark',
       },
     },
     android: {
       adaptiveIcon: {
-        foregroundImage: './assets/adaptive-icon.png',
-        backgroundColor: '#ffffff',
+        foregroundImage: './assets/images/android-icon-foreground.png',
+        backgroundColor: '#F5F0E8',
       },
       package: 'com.yourcompany.app',
       permissions: [
@@ -85,15 +87,59 @@ export default {
     web: {
       bundler: 'metro',
       output: 'static',
-      favicon: './assets/favicon.png',
+      favicon: './assets/images/favicon.png',
     },
     plugins: [
       [
+        'expo-font',
+        {
+          fonts: [
+            './assets/fonts/Playfair_Display/static/PlayfairDisplay-Bold.ttf',
+            './assets/fonts/Inter/static/Inter_18pt-Regular.ttf',
+            './assets/fonts/Inter/static/Inter_18pt-SemiBold.ttf',
+            './assets/fonts/Inter/static/Inter_18pt-Bold.ttf',
+            './assets/fonts/Roboto_Mono/static/RobotoMono-Medium.ttf',
+          ],
+          android: {
+            fonts: [
+              {
+                fontFamily: 'PlayfairDisplay-Bold',
+                fontDefinitions: [
+                  { path: './assets/fonts/Playfair_Display/static/PlayfairDisplay-Bold.ttf', weight: 700 },
+                ],
+              },
+              {
+                fontFamily: 'Inter18pt-Regular',
+                fontDefinitions: [
+                  { path: './assets/fonts/Inter/static/Inter_18pt-Regular.ttf', weight: 400 },
+                ],
+              },
+              {
+                fontFamily: 'Inter18pt-SemiBold',
+                fontDefinitions: [
+                  { path: './assets/fonts/Inter/static/Inter_18pt-SemiBold.ttf', weight: 600 },
+                ],
+              },
+              {
+                fontFamily: 'Inter18pt-Bold',
+                fontDefinitions: [
+                  { path: './assets/fonts/Inter/static/Inter_18pt-Bold.ttf', weight: 700 },
+                ],
+              },
+              {
+                fontFamily: 'RobotoMono-Medium',
+                fontDefinitions: [
+                  { path: './assets/fonts/Roboto_Mono/static/RobotoMono-Medium.ttf', weight: 500 },
+                ],
+              },
+            ],
+          },
+        },
+      ],
+      [
         'expo-build-properties',
         {
-          ios: {
-            minSdkVersion: '13.0',
-          },
+          ios: { minSdkVersion: '13.0' },
           android: {
             minSdkVersion: 21,
             compileSdkVersion: 34,
@@ -103,9 +149,7 @@ export default {
       ],
     ],
     extra: {
-      eas: {
-        projectId: env.EAS_PROJECT_ID,
-      },
+      eas: { projectId: env.EAS_PROJECT_ID },
       apiUrl: env.SERVER_API_URL,
       environment: env.ENVIRONMENT,
     },
@@ -123,43 +167,20 @@ PRODUCTION_API_URL=https://api.example.com
 EAS_PROJECT_ID=your-eas-project-id
 ```
 
-Access in code:
+## Usage Example
+
+Access environment values in code:
 
 ```typescript
 import Constants from 'expo-constants';
 
 const apiUrl = Constants?.expoConfig?.extra?.apiUrl;
-const projectId = Constants?.expoConfig?.extra?.eas?.projectId;
-```
-
-## Usage Example
-
-```typescript
-// In app.config.ts, EAS Build profiles
-export default {
-  expo: {
-    // ... config
-    extra: {
-      eas: {
-        projectId: process.env.EAS_PROJECT_ID,
-      },
-    },
-  },
-};
-
-// In your app
-import Constants from 'expo-constants';
-
-const API_URL = Constants?.expoConfig?.extra?.apiUrl;
-
-// Use in API calls
-fetch(`${API_URL}/api/users`);
 ```
 
 ## Gotchas
 
-- **Environment variables in app.config.ts:** Only environment variables set before the build are available. Use `.env` files or CI/CD secrets.
-- **EAS_PROJECT_ID:** Required for Expo push notifications and EAS Build. Get it from `eas.json` or the Expo dashboard.
-- **iOS bundle identifier:** Must be unique in the App Store. Use reverse domain naming (e.g., `com.company.appname`).
-- **Android package name:** Must be unique on Google Play. Different from iOS bundle identifier but should be similar.
-- **Build number vs version:** On iOS, increment `buildNumber` for each build; `version` follows semver. Android uses `versionCode` (integer) and `versionName` (semver).
+- **No `useFonts`**: The `expo-font` config plugin bundles fonts into the native binary at build time. Do not use `useFonts` — fonts are available at startup without any JS-side loading or splash screen delay.
+- **iOS font names**: On iOS, the font family name used in styles must match the font's PostScript name (e.g. `Inter18pt-Regular`, not `Inter-Regular`). The `fonts` array in the plugin handles iOS registration.
+- **Android font names**: The `android.fonts` section with `fontDefinitions` overrides the default filename-based naming, giving Android the same `fontFamily` names as iOS. Both platforms must resolve to the same string.
+- **Rebuild required**: After adding or changing fonts in `app.config.ts`, you must run a new native build (`npx expo run:ios` / `npx expo run:android`). Metro reload is not enough.
+- **EAS_PROJECT_ID**: Required for Expo push notifications. Get it from `eas.json` or the Expo dashboard after running `eas build:configure`.
